@@ -1,8 +1,10 @@
 <launch>
   <node name="mynteye_ros_wrapper" pkg="mynteye_ros_wrapper" type="mynteye_wrapper_node" output="screen">
 
-    <param name="device_name"   type="int"  value="1" />
-    <param name="camera_hz"     type="int"  value="20" />
+    <param name="device_name" type="int" value="1" />
+
+    <param name="enable_cpu" value="false" />
+    <param name="enable_depth" value="false" />
 
     <param name="left_topic"            value="left/image_rect_color" />
     <param name="left_raw_topic"        value="left/image_raw_color" />

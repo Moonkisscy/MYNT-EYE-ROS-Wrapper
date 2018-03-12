@@ -49,6 +49,10 @@ $ source ./devel/setup.bash
 Open a terminal and launch the wrapper:
 
 ```
+# Run MYNT EYE camera node, and open Rviz to display
+$ roslaunch mynteye_ros_wrapper mynt_camera_display.launch
+
+# Run MYNT EYE camera node
 $ roslaunch mynteye_ros_wrapper mynt_camera.launch
 # Or,
 $ rosrun mynteye_ros_wrapper mynteye_wrapper_node

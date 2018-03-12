@@ -50,8 +50,7 @@ class MYNTWrapperNodelet : public nodelet::Nodelet {
     boost::shared_ptr<boost::thread> device_poll_thread;
 
     mynteye::Camera cam;
-
-    mynteye::Resolution resolution = cam.GetResolution();
+    mynteye::Resolution resolution;
 
     image_transport::Publisher pub_raw_right;
     image_transport::Publisher pub_raw_left;
@@ -69,7 +68,9 @@ class MYNTWrapperNodelet : public nodelet::Nodelet {
     std::string imu_frame_id;
 
     int device_name;
-    int camera_hz;
+
+    bool enable_cpu;
+    bool enable_depth;
 
 #ifdef VERBOSE_TO_FILE
     std::ofstream file_imus;
@@ -271,7 +272,14 @@ ros::Time getIMUStamp(mynteye::IMUData *imudata, bool reset = false) {
 void device_poll() {
     using namespace mynteye;
 
-    //ros::Rate loop_rate(camera_hz);
+    if (enable_cpu) {
+        // If you wanna run with CPU instead of GPU
+        cam.SetMode(Mode::MODE_CPU);
+    } else {
+        // otherwise, auto detect
+    }
+
+    resolution = cam.GetResolution();
 
     InitParameters params(std::to_string(device_name));
     cam.Open(params);
@@ -281,8 +289,9 @@ void device_poll() {
         return;
     }
 
-    //cam.SetMode(Mode::MODE_CPU);
-    //cam.ActivateDepthMapFeature();
+    if (enable_depth) {
+        cam.ActivateDepthMapFeature();
+    }
 
     CalibrationParameters *calib_params = nullptr;
     calib_params = new CalibrationParameters(cam.GetCalibrationParameters());
@@ -344,10 +353,10 @@ void device_poll() {
                 publishImage(img_right, pub_raw_right, right_frame_id, getImgStamp());
                 img_get = true;
             }
-            if (depth_SubNumber > 0) {
-                /*if (cam.RetrieveImage(depthmap, View::VIEW_DEPTH_MAP) == ErrorCode::SUCCESS) {
+            if (enable_depth && depth_SubNumber > 0) {
+                if (cam.RetrieveImage(depthmap, View::VIEW_DEPTH_MAP) == ErrorCode::SUCCESS) {
                     publishDepth(depthmap, getImgStamp());
-                }*/
+                }
             }
             if (!img_get) {
                 getImgStamp(true);  // reset
@@ -461,11 +470,14 @@ void onInit() {
     imu_frame_id = "/mynt_imu_frame";
 
     device_name = 1;
-    camera_hz = 20;
+    enable_cpu = false;
+    enable_depth = false;
 
     nh = getMTNodeHandle();
     nh_ns = getMTPrivateNodeHandle();
-    nh_ns.getParam("camera_hz", camera_hz);
+    nh_ns.getParam("device_name", device_name);
+    nh_ns.getParam("enable_cpu", enable_cpu);
+    nh_ns.getParam("enable_depth", enable_depth);
     nh_ns.getParam("left_topic", left_topic);
     nh_ns.getParam("left_raw_topic", left_raw_topic);
     nh_ns.getParam("left_cam_info_topic", left_cam_info_topic);
@@ -473,7 +485,6 @@ void onInit() {
     nh_ns.getParam("right_raw_topic", right_raw_topic);
     nh_ns.getParam("right_cam_info_topic", right_cam_info_topic);
     nh_ns.getParam("depth_topic", depth_topic);
-    nh_ns.getParam("device_name", device_name);
     nh_ns.getParam("imu_topic", imu_topic);
 
     image_transport::ImageTransport it_mynteye(nh);
@@ -497,6 +508,7 @@ void onInit() {
 
     pub_imu = nh.advertise<sensor_msgs::Imu>(imu_topic, 1);
     NODELET_INFO_STREAM("Advertized on topic " << imu_topic);
+
 
     device_poll_thread = boost::shared_ptr<boost::thread>
             (new boost::thread(boost::bind(&MYNTWrapperNodelet::device_poll, this)));
